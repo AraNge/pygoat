@@ -62,3 +62,39 @@ jobs:
       with:
         name: docker-scout-findings
         path: scout-report.sarif
+
+  dast_scan:
+    name: Deploy PyGoat and Run DAST Scan
+    runs-on: ubuntu-latest
+    needs: [sast_scan, image_scan]
+    if: always()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy PyGoat
+        run: |
+          docker pull pygoat/pygoat:latest
+          docker run --rm -d -p 8000:8000 --name pygoat pygoat/pygoat:latest
+
+      - name: Wait for PyGoat to be ready
+        run: |
+          echo "Waiting for PyGoat to start..."
+          for i in $(seq 1 30); do
+            if curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/ | grep -q "200\|302"; then
+              echo "PyGoat is up!"
+              exit 0
+            fi
+            echo "Attempt $i: not ready yet, waiting..."
+            sleep 2
+          done
+          echo "PyGoat failed to start in time."
+          docker logs pygoat
+          exit 1
+
+      - name: Run OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.15.0
+        with:
+          target: 'http://localhost:8000'
+          allow_issue_writing: false
