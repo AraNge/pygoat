@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request
 import subprocess
 import os
+import shlex
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "your-secret-key-here"
@@ -25,9 +26,10 @@ def lab1():
             command = f"dig {domain}"
 
         try:
-            # Intentionally vulnerable command execution
+            # Secure: Split the command string into a list of arguments without invoking the shell
+            args = shlex.split(command)
             process = subprocess.Popen(
-                command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+                args, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE
             )
             stdout, stderr = process.communicate()
             output = stdout.decode("utf-8") + stderr.decode("utf-8")
